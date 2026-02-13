@@ -39,6 +39,10 @@
 #include "plugin.h"
 #include "menus/screen_filters.h"
 #include "shell.h"
+#include <string.h>
+#include "3ds/services/fs.h"
+#include <stdio.h>
+#include "csvc.h"
 
 //#define ROSALINA_MENU_SELF_SCREENSHOT 1 // uncomment this to enable the feature
 
@@ -194,12 +198,66 @@ u32 waitCombo(void)
     return waitComboWithTimeout(-1);
 }
 
+#ifdef __INTELLISENSE__
+#define __attribute__(x)
+#define CTR_ALIGN(x)
+#define __builtin_trap()
+#endif
+
 static MyThread menuThread;
 static u8 CTR_ALIGN(8) menuThreadStack[0x3000];
 
 static float batteryPercentage;
 static float batteryVoltage;
 static u8 batteryTemperature;
+
+static MyThread coolThread;
+static u8 CTR_ALIGN(8) coolThreadStack[0x1000];
+
+int loopNum = 0;
+
+void coolThreadMain(void)
+{
+    // wait until all menu services ready
+    while (!isServiceUsable("ac:u") || !isServiceUsable("hid:USER") ||
+        !isServiceUsable("gsp::Gpu") || !isServiceUsable("gsp::Lcd") ||
+        !isServiceUsable("cdc:CHK"))
+        svcSleepThread(250 * 1000 * 1000LL);
+
+    svcSleepThread(5 * 1000 * 1000 * 1000LL); // extra seconds
+
+    // example code that switches a file every 10 seconds and updates menu debug text
+    FS_Archive sd;
+    if (R_FAILED(FSUSER_OpenArchive(&sd, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, NULL))))
+    {
+        return;
+    }
+    while (!preTerminationRequested)
+    {
+        svcSleepThread(10 * 1000 * 1000 * 1000LL); // 10 seconds
+
+        loopNum += 1; // open menu for hello world message with this count
+
+        // if you make these files on SD:/test/ they will switch around every 10 seconds
+        FS_Path txt = fsMakePath(PATH_ASCII, "/test/1.txt");
+        FS_Path txtTemp = fsMakePath(PATH_ASCII, "/test/temp.txt");
+        FS_Path txt2 = fsMakePath(PATH_ASCII, "/test/2.txt");
+
+        FSUSER_RenameFile(sd, txt2, sd, txtTemp);
+        FSUSER_RenameFile(sd, txt, sd, txt2);
+        FSUSER_RenameFile(sd, txtTemp, sd, txt);
+    }
+    // close everything
+    FSUSER_CloseArchive(sd);
+    fsExit();
+}
+
+MyThread* createCoolThread(void)
+{
+    if (R_FAILED(MyThread_Create(&coolThread, coolThreadMain, coolThreadStack, sizeof(coolThreadStack), 63, CORE_SYSTEM)))
+        svcBreak(USERBREAK_PANIC);
+    return &coolThread;
+}
 
 static Result menuUpdateMcuInfo(void)
 {
@@ -430,7 +488,7 @@ void menuLeave(void)
     Draw_Unlock();
 }
 
-static void menuDraw(Menu *menu, u32 selected)
+static void menuDraw(Menu* menu, u32 selected)
 {
     char versionString[16];
     s64 out;
@@ -448,7 +506,7 @@ static void menuDraw(Menu *menu, u32 selected)
     svcGetSystemInfo(&out, 0x10000, 0x200);
     isRelease = (bool)out;
 
-    if(GET_VERSION_REVISION(version) == 0)
+    if (GET_VERSION_REVISION(version) == 0)
         sprintf(versionString, "v%lu.%lu", GET_VERSION_MAJOR(version), GET_VERSION_MINOR(version));
     else
         sprintf(versionString, "v%lu.%lu.%lu", GET_VERSION_MAJOR(version), GET_VERSION_MINOR(version), GET_VERSION_REVISION(version));
@@ -457,7 +515,7 @@ static void menuDraw(Menu *menu, u32 selected)
     u32 numItems = menuCountItems(menu);
     u32 dispY = 0;
 
-    for(u32 i = 0; i < numItems; i++)
+    for (u32 i = 0; i < numItems; i++)
     {
         if (menuItemIsHidden(&menu->items[i]))
             continue;
@@ -467,11 +525,11 @@ static void menuDraw(Menu *menu, u32 selected)
         dispY += SPACING_Y;
     }
 
-    if(miniSocEnabled)
+    if (miniSocEnabled)
     {
         char ipBuffer[17];
         u32 ip = socGethostid();
-        u8 *addr = (u8 *)&ip;
+        u8* addr = (u8*)&ip;
         int n = sprintf(ipBuffer, "%hhu.%hhu.%hhu.%hhu", addr[0], addr[1], addr[2], addr[3]);
         Draw_DrawString(SCREEN_BOT_WIDTH - 10 - SPACING_X * n, 10, COLOR_WHITE, ipBuffer);
     }
@@ -479,7 +537,7 @@ static void menuDraw(Menu *menu, u32 selected)
     else
         Draw_DrawFormattedString(SCREEN_BOT_WIDTH - 10 - SPACING_X * 15, 10, COLOR_WHITE, "%15s", "");
 
-    if(mcuInfoRes == 0)
+    if (mcuInfoRes == 0)
     {
         u32 voltageInt = (u32)batteryVoltage;
         u32 voltageFrac = (u32)(batteryVoltage * 100.0f) % 100u;
@@ -497,7 +555,16 @@ static void menuDraw(Menu *menu, u32 selected)
     else
         Draw_DrawFormattedString(SCREEN_BOT_WIDTH - 10 - SPACING_X * 19, SCREEN_BOT_HEIGHT - 20, COLOR_WHITE, "%19s", "");
 
-    if(isRelease)
+    // debug string
+    Draw_DrawFormattedString(
+        10,
+        SCREEN_BOT_HEIGHT - 40,
+        COLOR_TITLE,
+        "DEBUG: Hello World! loopNum=%d",
+        loopNum
+    );
+
+    if (isRelease)
         Draw_DrawFormattedString(10, SCREEN_BOT_HEIGHT - 20, COLOR_TITLE, "Luma3DS %s", versionString);
     else
         Draw_DrawFormattedString(10, SCREEN_BOT_HEIGHT - 20, COLOR_TITLE, "Luma3DS %s-%08lx", versionString, commitHash);

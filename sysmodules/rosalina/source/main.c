@@ -53,6 +53,11 @@ Result __sync_fini(void);
 void __libc_init_array(void);
 void __libc_fini_array(void);
 
+#ifdef __INTELLISENSE__
+#define HBLDR_DEFAULT_3DSX_TID 0
+#define HBLDR_DEFAULT_3DSX_TITLE_NAME ""
+#endif
+
 void __ctru_exit(int rc) { (void)rc; } // needed to avoid linking error
 
 // this is called after main exits
@@ -270,6 +275,9 @@ int main(void)
     MyThread *taskRunnerThread = taskRunnerCreateThread();
     MyThread *errDispThread = errDispCreateThread();
     bootdiagCreateThread();
+
+    MyThread* coolThread = createCoolThread();
+    (void)coolThread;
 
     if (R_FAILED(ServiceManager_Run(services, notifications, NULL)))
         svcBreak(USERBREAK_PANIC);
