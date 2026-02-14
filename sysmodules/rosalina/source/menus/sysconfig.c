@@ -40,6 +40,7 @@ Menu sysconfigMenu = {
         { "Control volume", METHOD, .method=&SysConfigMenu_AdjustVolume},
         { "Control Wireless connection", METHOD, .method = &SysConfigMenu_ControlWifi },
         { "Toggle LEDs", METHOD, .method = &SysConfigMenu_ToggleLEDs },
+        { "Change LED color", METHOD, .method = &SysConfigMenu_ChangeLEDColor },
         { "Toggle Wireless", METHOD, .method = &SysConfigMenu_ToggleWireless },
         { "Toggle Power Button", METHOD, .method=&SysConfigMenu_TogglePowerButton },
         { "Toggle power to card slot", METHOD, .method=&SysConfigMenu_ToggleCardIfPower},
@@ -648,4 +649,72 @@ void SysConfigMenu_ChangeScreenBrightness(void)
         Draw_SetupFramebuffer();
 
     Draw_Unlock();
+}
+
+void SysConfigMenu_ChangeLEDColor(void)
+{
+    // LED color presets: {Red, Green, Blue}
+    const u8 colors[5][3] = {
+        {255, 0, 0},      // Red
+        {0, 255, 0},      // Green
+        {0, 0, 255},      // Blue
+        {255, 255, 255},  // White
+        {0, 0, 0}         // Off
+    };
+
+    const char *colorNames[5] = {
+        "Red",
+        "Green",
+        "Blue",
+        "White",
+        "Off"
+    };
+
+    u32 selectedColor = 0;
+
+    Draw_Lock();
+    Draw_ClearFramebuffer();
+    Draw_FlushFramebuffer();
+    Draw_Unlock();
+
+    do
+    {
+        Draw_Lock();
+        Draw_DrawString(10, 10, COLOR_TITLE, "Change LED color");
+        Draw_DrawString(10, 30, COLOR_WHITE, "Press A to select, B to go back.");
+        Draw_DrawString(10, 50, COLOR_WHITE, "Use UP/DOWN to navigate.");
+
+        u32 posY = 80;
+        for(u32 i = 0; i < 5; i++)
+        {
+            u32 color = (i == selectedColor) ? COLOR_GREEN : COLOR_WHITE;
+            const char *marker = (i == selectedColor) ? "> " : "  ";
+            Draw_DrawFormattedString(10, posY + (i * 20), color, "%s%s", marker, colorNames[i]);
+        }
+
+        Draw_FlushFramebuffer();
+        Draw_Unlock();
+
+        u32 pressed = waitInputWithTimeout(1000);
+
+        if(pressed & KEY_UP)
+        {
+            selectedColor = (selectedColor == 0) ? 4 : selectedColor - 1;
+        }
+        else if(pressed & KEY_DOWN)
+        {
+            selectedColor = (selectedColor == 4) ? 0 : selectedColor + 1;
+        }
+        else if(pressed & KEY_A)
+        {
+            mcuHwcInit();
+            MCUHWC_WriteRegister(0x2A, &colors[selectedColor][0], 1);
+            MCUHWC_WriteRegister(0x2B, &colors[selectedColor][1], 1);
+            MCUHWC_WriteRegister(0x2C, &colors[selectedColor][2], 1);
+            mcuHwcExit();
+        }
+        else if(pressed & KEY_B)
+            return;
+    }
+    while(!menuShouldExit);
 }

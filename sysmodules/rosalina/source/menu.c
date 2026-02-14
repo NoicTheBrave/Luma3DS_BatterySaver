@@ -564,27 +564,27 @@ static void menuDraw(Menu* menu, u32 selected)
         loopNum
     );
 
-
-
-
-
-    /*
-    
+    /*   
     TODO: 
         - Make function that checks on the battery & screams at you when the battery % is XX.6% (make the status LED light up?)
             - This is a Proof of concept that I can do an action based on the battery % 
-            
+
     
     
     */
 
 
+    /* START OF CUSTOM CODE  */
+
+    
+    if((int)batteryPercentage % 2 == 0) // if the battery percentage is an even number, display a warning (for testing purposes)
+    {
+        Draw_DrawString(10, SCREEN_BOT_HEIGHT - 60, COLOR_RED, "Battery low!");
+    }
 
 
 
-
-
-
+    /* END OF CUSTOM CODE  */
 
 
     if (isRelease)

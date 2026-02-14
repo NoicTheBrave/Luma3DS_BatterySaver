@@ -36,6 +36,7 @@ extern s8 currVolumeSliderOverride;
 void SysConfigMenu_UpdateStatus(bool control);
 
 void SysConfigMenu_ToggleLEDs(void);
+void SysConfigMenu_ChangeLEDColor(void);
 void SysConfigMenu_ToggleWireless(void);
 void SysConfigMenu_TogglePowerButton(void);
 void SysConfigMenu_ControlWifi(void);
