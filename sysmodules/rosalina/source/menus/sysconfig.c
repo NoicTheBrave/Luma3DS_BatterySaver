@@ -653,21 +653,26 @@ void SysConfigMenu_ChangeScreenBrightness(void)
 
 void SysConfigMenu_ChangeLEDColor(void)
 {
-    // LED color presets: {Red, Green, Blue}
-    const u8 colors[5][3] = {
-        {255, 0, 0},      // Red
-        {0, 255, 0},      // Green
-        {0, 0, 255},      // Blue
-        {255, 255, 255},  // White
-        {0, 0, 0}         // Off
-    };
-
-    const char *colorNames[5] = {
+    // LED colors for the notification LED
+    const char *colorNames[6] = {
         "Red",
         "Green",
         "Blue",
-        "White",
+        "Yellow (R+G)",
+        "Cyan (G+B)",
         "Off"
+    };
+
+    // Pattern values: full brightness = 0xFF, off = 0x00
+    const struct {
+        u8 red, green, blue;
+    } colorPatterns[6] = {
+        {0xFF, 0x00, 0x00},  // Red
+        {0x00, 0xFF, 0x00},  // Green
+        {0x00, 0x00, 0xFF},  // Blue
+        {0xFF, 0xFF, 0x00},  // Yellow
+        {0x00, 0xFF, 0xFF},  // Cyan
+        {0x00, 0x00, 0x00}   // Off
     };
 
     u32 selectedColor = 0;
@@ -685,7 +690,7 @@ void SysConfigMenu_ChangeLEDColor(void)
         Draw_DrawString(10, 50, COLOR_WHITE, "Use UP/DOWN to navigate.");
 
         u32 posY = 80;
-        for(u32 i = 0; i < 5; i++)
+        for(u32 i = 0; i < 6; i++)
         {
             u32 color = (i == selectedColor) ? COLOR_GREEN : COLOR_WHITE;
             const char *marker = (i == selectedColor) ? "> " : "  ";
@@ -699,19 +704,48 @@ void SysConfigMenu_ChangeLEDColor(void)
 
         if(pressed & KEY_UP)
         {
-            selectedColor = (selectedColor == 0) ? 4 : selectedColor - 1;
+            selectedColor = (selectedColor == 0) ? 5 : selectedColor - 1;
         }
         else if(pressed & KEY_DOWN)
         {
-            selectedColor = (selectedColor == 4) ? 0 : selectedColor + 1;
+            selectedColor = (selectedColor == 5) ? 0 : selectedColor + 1;
         }
         else if(pressed & KEY_A)
         {
             mcuHwcInit();
-            MCUHWC_WriteRegister(0x2A, &colors[selectedColor][0], 1);
-            MCUHWC_WriteRegister(0x2B, &colors[selectedColor][1], 1);
-            MCUHWC_WriteRegister(0x2C, &colors[selectedColor][2], 1);
+            
+            // Create the LED pattern struct with solid color pattern
+            InfoLedPattern pattern;
+            memset(&pattern, 0, sizeof(pattern));
+            
+            // Set solid color: fill entire pattern array with the color value
+            memset(pattern.redPattern, colorPatterns[selectedColor].red, sizeof(pattern.redPattern));
+            memset(pattern.greenPattern, colorPatterns[selectedColor].green, sizeof(pattern.greenPattern));
+            memset(pattern.bluePattern, colorPatterns[selectedColor].blue, sizeof(pattern.bluePattern));
+            
+            // Set timing: loop forever (0xFF) with no delay
+            pattern.delay = 0x00;
+            pattern.loopDelay = 0xFF;
+            
+            // Set the notification LED pattern
+            Result res = MCUHWC_SetInfoLedPattern(&pattern);
+            
             mcuHwcExit();
+            
+            Draw_Lock();
+            Draw_ClearFramebuffer();
+            Draw_DrawString(10, 10, COLOR_TITLE, "LED Color Change");
+            
+            if(R_SUCCEEDED(res))
+                Draw_DrawFormattedString(10, 30, COLOR_GREEN, "LED set to %s", colorNames[selectedColor]);
+            else
+                Draw_DrawFormattedString(10, 30, COLOR_RED, "Failed to set LED (0x%08lx)", res);
+            
+            Draw_DrawString(10, 70, COLOR_WHITE, "Press any key to continue...");
+            Draw_FlushFramebuffer();
+            Draw_Unlock();
+            
+            waitInput();
         }
         else if(pressed & KEY_B)
             return;
