@@ -576,10 +576,10 @@ static void menuDraw(Menu* menu, u32 selected)
 
     /* START OF CUSTOM CODE  */
 
-    
+
     if((int)batteryPercentage % 2 == 0) // if the battery percentage is an even number, display a warning (for testing purposes)
     {
-        Draw_DrawString(10, SCREEN_BOT_HEIGHT - 60, COLOR_RED, "Battery low!");
+        Draw_DrawString(10, SCREEN_BOT_HEIGHT - 60, COLOR_RED, "Battery Precentage is even!"); // display warning in red
     }
 
 
