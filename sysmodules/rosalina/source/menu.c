@@ -564,6 +564,29 @@ static void menuDraw(Menu* menu, u32 selected)
         loopNum
     );
 
+
+
+
+
+    /*
+    
+    TODO: 
+        - Make function that checks on the battery & screams at you when the battery % is XX.6% (make the status LED light up?)
+            - This is a Proof of concept that I can do an action based on the battery % 
+            
+    
+    
+    */
+
+
+
+
+
+
+
+
+
+
     if (isRelease)
         Draw_DrawFormattedString(10, SCREEN_BOT_HEIGHT - 20, COLOR_TITLE, "Luma3DS %s", versionString);
     else
